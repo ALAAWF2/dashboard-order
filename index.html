@@ -72,26 +72,22 @@
 
       const after = date + "T00:00:00";
       const before = date + "T23:59:59";
-      const url = `https://orangebedbath.online/wp-json/wc/v3/orders?after=${after}&before=${before}&per_page=100`;
+      const url = `http://localhost:3000/orders?after=${after}&before=${before}&per_page=100`;
 
-      fetch(url, {
-        headers: {
-          Authorization: 'Basic ' + btoa("ck_5b0cd4712d442f1ca2f00634720d4d84c0e4fdf1:cs_ad0abe949a47d7727e189d53afb7f6123739c664")
-        }
-      })
-      .then(res => res.json())
-      .then(orders => {
-        ordersList = orders;
-        const list = document.getElementById("order-list");
-        list.innerHTML = "";
-        orders.forEach((order, index) => {
-          const li = document.createElement("li");
-          li.id = `order-${order.id}`;
-          li.textContent = `#${order.id} - ${order.billing?.first_name || "عميل"} - ${order.line_items?.length || 0} منتج`;
-          li.onclick = () => { currentIndex = index; loadOrder(order.id); };
-          list.appendChild(li);
+      fetch(url)
+        .then(res => res.json())
+        .then(orders => {
+          ordersList = orders;
+          const list = document.getElementById("order-list");
+          list.innerHTML = "";
+          orders.forEach((order, index) => {
+            const li = document.createElement("li");
+            li.id = `order-${order.id}`;
+            li.textContent = `#${order.id} - ${order.billing?.first_name || "عميل"} - ${order.line_items?.length || 0} منتج`;
+            li.onclick = () => { currentIndex = index; loadOrder(order.id); };
+            list.appendChild(li);
+          });
         });
-      });
     }
 
     function loadOrder(orderId) {
@@ -105,32 +101,28 @@
       document.querySelectorAll("#order-list li").forEach(li => li.classList.remove("active"));
       document.getElementById(`order-${orderId}`)?.classList.add("active");
 
-      fetch(`https://orangebedbath.online/wp-json/wc/v3/orders/${orderId}`, {
-        headers: {
-          Authorization: 'Basic ' + btoa("ck_5b0cd4712d442f1ca2f00634720d4d84c0e4fdf1:cs_ad0abe949a47d7727e189d53afb7f6123739c664")
-        }
-      })
-      .then(res => res.json())
-      .then(order => {
-        const tableBody = document.querySelector("#order-table tbody");
-        order.line_items.forEach(item => {
-          let sku = item.sku || item.meta_data?.find(m => m.key === "_sku")?.value;
-          const quantity = item.quantity;
-          if (!sku) return;
+      fetch(`http://localhost:3000/orders/${orderId}`)
+        .then(res => res.json())
+        .then(order => {
+          const tableBody = document.querySelector("#order-table tbody");
+          order.line_items.forEach(item => {
+            let sku = item.sku || item.meta_data?.find(m => m.key === "_sku")?.value;
+            const quantity = item.quantity;
+            if (!sku) return;
 
-          orderItems[sku] = quantity;
-          preparedItems[sku] = 0;
-          const row = document.createElement("tr");
-          row.id = `row-${sku}`;
-          row.innerHTML = `
-            <td>${item.name} (${sku})</td>
-            <td>${quantity}</td>
-            <td id="prepared-${sku}">0</td>
-            <td id="status-${sku}">🟡</td>
-          `;
-          tableBody.appendChild(row);
+            orderItems[sku] = quantity;
+            preparedItems[sku] = 0;
+            const row = document.createElement("tr");
+            row.id = `row-${sku}`;
+            row.innerHTML = `
+              <td>${item.name} (${sku})</td>
+              <td>${quantity}</td>
+              <td id="prepared-${sku}">0</td>
+              <td id="status-${sku}">🟡</td>
+            `;
+            tableBody.appendChild(row);
+          });
         });
-      });
     }
 
     function loadNextOrder() {
@@ -180,7 +172,6 @@
         document.getElementById("status").innerHTML = `<span class="match">✅ تمت مطابقة ${productName}</span>`;
         playSound("success");
 
-        // Check if all items prepared
         const allPrepared = Object.keys(orderItems).every(sku => preparedItems[sku] >= orderItems[sku]);
         if (allPrepared) {
           document.getElementById("next-order").style.display = "inline-block";
