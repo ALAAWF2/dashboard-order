@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>لوحة تحضير الطلبات</title>
+  <style>
+    body { font-family: sans-serif; direction: rtl; background: #f7f7f7; padding: 20px; }
+    h1 { color: #333; }
+    input, button, select { font-size: 1em; padding: 6px; margin: 5px 0; }
+    #order-list li { cursor: pointer; padding: 5px; background: #fff; margin-bottom: 4px; border: 1px solid #ccc; }
+    #order-list li:hover { background: #e0f7fa; }
+    #order-list li.completed { background: #c8e6c9; font-weight: bold; }
+    #order-list li.active { background: #a5d6a7; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+    th { background: #eee; }
+    .completed-row { background: #c8e6c9; }
+    .match { color: green; font-weight: bold; }
+    .mismatch { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>📦 لوحة تحضير الطلبات</h1>
+
+  <label for="date-filter">📅 اختر التاريخ:</label>
+  <input type="date" id="date-filter" />
+  <button onclick="fetchOrdersByDate()">📥 جلب الطلبات</button>
+
+  <h3>🧾 قائمة الطلبات:</h3>
+  <ul id="order-list"></ul>
+
+  <h2>تحقق الطلب - رقم الطلب: <span id="order-id">-</span></h2>
+  <label for="barcode">🔍 امسح الباركود:</label>
+  <input type="text" id="barcode" autofocus />
+  <div id="status"></div>
+
+  <table id="order-table">
+    <thead>
+      <tr>
+        <th>المنتج</th>
+        <th>الكمية المطلوبة</th>
+        <th>المحضَّر</th>
+        <th>الحالة</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="next-order" onclick="loadNextOrder()" style="display:none; margin-top: 10px;">⏩ الطلب التالي</button>
+
+  <audio id="success" src="success.mp3"></audio>
+  <audio id="error" src="error.mp3"></audio>
+
+  <script>
+    let aliasToCode = {}, codeToAlias = {}, aliasToName = {};
+    let orderItems = {}, preparedItems = {}, currentOrderId = null;
+    let ordersList = [], currentIndex = -1;
+
+    fetch("alias_code_mapping.json")
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(item => {
+          aliasToCode[item.alias] = item.code.toString();
+          codeToAlias[item.code.toString()] = item.alias;
+          aliasToName[item.alias] = item.name;
+        });
+      });
+
+    function fetchOrdersByDate() {
+      const date = document.getElementById("date-filter").value;
+      if (!date) return alert("اختر تاريخًا أولاً");
+
+      const after = date + "T00:00:00";
+      const before = date + "T23:59:59";
+      const url = `https://orangebedbath.online/wp-json/wc/v3/orders?after=${after}&before=${before}&per_page=100`;
+
+      fetch(url, {
+        headers: {
+          Authorization: 'Basic ' + btoa("ck_5b0cd4712d442f1ca2f00634720d4d84c0e4fdf1:cs_ad0abe949a47d7727e189d53afb7f6123739c664")
+        }
+      })
+      .then(res => res.json())
+      .then(orders => {
+        ordersList = orders;
+        const list = document.getElementById("order-list");
+        list.innerHTML = "";
+        orders.forEach((order, index) => {
+          const li = document.createElement("li");
+          li.id = `order-${order.id}`;
+          li.textContent = `#${order.id} - ${order.billing?.first_name || "عميل"} - ${order.line_items?.length || 0} منتج`;
+          li.onclick = () => { currentIndex = index; loadOrder(order.id); };
+          list.appendChild(li);
+        });
+      });
+    }
+
+    function loadOrder(orderId) {
+      currentOrderId = orderId;
+      document.getElementById("order-id").textContent = orderId;
+      document.querySelector("#order-table tbody").innerHTML = "";
+      orderItems = {};
+      preparedItems = {};
+      document.getElementById("next-order").style.display = "none";
+
+      document.querySelectorAll("#order-list li").forEach(li => li.classList.remove("active"));
+      document.getElementById(`order-${orderId}`)?.classList.add("active");
+
+      fetch(`https://orangebedbath.online/wp-json/wc/v3/orders/${orderId}`, {
+        headers: {
+          Authorization: 'Basic ' + btoa("ck_5b0cd4712d442f1ca2f00634720d4d84c0e4fdf1:cs_ad0abe949a47d7727e189d53afb7f6123739c664")
+        }
+      })
+      .then(res => res.json())
+      .then(order => {
+        const tableBody = document.querySelector("#order-table tbody");
+        order.line_items.forEach(item => {
+          let sku = item.sku || item.meta_data?.find(m => m.key === "_sku")?.value;
+          const quantity = item.quantity;
+          if (!sku) return;
+
+          orderItems[sku] = quantity;
+          preparedItems[sku] = 0;
+          const row = document.createElement("tr");
+          row.id = `row-${sku}`;
+          row.innerHTML = `
+            <td>${item.name} (${sku})</td>
+            <td>${quantity}</td>
+            <td id="prepared-${sku}">0</td>
+            <td id="status-${sku}">🟡</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      });
+    }
+
+    function loadNextOrder() {
+      if (currentIndex < ordersList.length - 1) {
+        currentIndex++;
+        const nextOrder = ordersList[currentIndex];
+        loadOrder(nextOrder.id);
+      }
+    }
+
+    function playSound(type) {
+      document.getElementById(type).play();
+    }
+
+    document.getElementById("barcode").addEventListener("keyup", function (e) {
+      if (e.key === "Enter") {
+        const code = this.value.trim();
+        this.value = "";
+
+        const alias = codeToAlias[code];
+        if (!alias) {
+          document.getElementById("status").innerHTML = `<span class="mismatch">❌ الباركود غير معروف (${code})</span>`;
+          playSound("error");
+          return;
+        }
+
+        if (!(alias in orderItems)) {
+          document.getElementById("status").innerHTML = `<span class="mismatch">❌ المنتج غير موجود في الطلب (${alias})</span>`;
+          playSound("error");
+          return;
+        }
+
+        if (preparedItems[alias] >= orderItems[alias]) {
+          document.getElementById("status").innerHTML = `<span class="mismatch">❌ تم تحضير كل الكمية لهذا المنتج</span>`;
+          playSound("error");
+          return;
+        }
+
+        preparedItems[alias]++;
+        document.getElementById(`prepared-${alias}`).innerText = preparedItems[alias];
+        if (preparedItems[alias] === orderItems[alias]) {
+          document.getElementById(`row-${alias}`).classList.add("completed-row");
+          document.getElementById(`status-${alias}`).innerText = "✅";
+        }
+
+        const productName = aliasToName[alias] || alias;
+        document.getElementById("status").innerHTML = `<span class="match">✅ تمت مطابقة ${productName}</span>`;
+        playSound("success");
+
+        // Check if all items prepared
+        const allPrepared = Object.keys(orderItems).every(sku => preparedItems[sku] >= orderItems[sku]);
+        if (allPrepared) {
+          document.getElementById("next-order").style.display = "inline-block";
+          document.getElementById(`order-${currentOrderId}`)?.classList.add("completed");
+        }
+      }
+    });
+  </script>
+</body>
+</html>
