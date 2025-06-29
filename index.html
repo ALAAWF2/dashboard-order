@@ -52,11 +52,15 @@
   <audio id="error" src="error.mp3"></audio>
 
   <script>
+    // طلب التوكن إذا غير موجود
+    if (!localStorage.getItem("oto_token")) {
+      const token = prompt("أدخل التوكن المؤقت:");
+      localStorage.setItem("oto_token", token);
+    }
+
     let aliasToCode = {}, codeToAlias = {}, aliasToName = {};
     let orderItems = {}, preparedItems = {}, currentOrderId = null;
     let ordersList = [], currentIndex = -1;
-
-    const accessToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ijg3NzQ4NTAwMmYwNWJlMDI2N2VmNDU5ZjViNTEzNTMzYjVjNThjMTIiLCJ0eXAiOiJKV1QifQ.eyJjb21wYW55SWQiOiIzMTYxIiwiY2xpZW50VHlwZSI6IkVudGVycHJpc2VQYWNrYWdlIiwic3RvcmVOYW1lIjoib3RvQXBpIiwidXNlclR5cGUiOiJzYWxlc0NoYW5uZWwiLCJ1c2VySWQiOiI4ODY4IiwiZW1haWwiOiI4NzAwQHRyeW90by5jb20iLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vb3RvLXJlc3QtYXBpIiwiYXVkIjoib3RvLXJlc3QtYXBpIiwiYXV0aF90aW1lIjoxNjk4NjQ5MDkyLCJ1c2VyX2lkIjoiT2FXaUxiZkJzdlRQSFU3N0c5VUg4b2xxTXVHMiIsInN1YiI6Ik9hV2lMYmZCc3ZUUEhVNzdHOVVIOG9scU11RzIiLCJpYXQiOjE3NTExODUxMzgsImV4cCI6MTc1MTE4ODczOCwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbIjg3MDBAdHJ5b3RvLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.Ky26zbYeYPgGHQ6x-ymZ5g6TeMxzTdVVoqJY27o2UbFEBnj9Njw1oC9RBOCIKjlblTIcA6zxc4TKvYdb_4X3cBGaOJnLTMbG9GF5AELnT893x1pwA4iZwJQv18VncZmXqiiofdv3p82U1m0q9CG2eOQAWBRZ3OqNQnesjpNVJa3LeuiIlpfO3sd3Do6jBWywXwqCVxWNad_D5UksYFIZeVD49ZoFIpSJ987NRcy4ie8FLv_Caif-2s3IHxxUaqHM-VVJPmkYPf7qNR1LiyHLBGqJv4wM_XG-uedupzavMGjP8oCoqQofkypJnUdtdIqKzIUo_Ygz_O7CkXic-CrycQ";
 
     fetch("alias_code_mapping.json")
       .then(res => res.json())
@@ -74,11 +78,11 @@
 
       const after = date + "T00:00:00Z";
       const before = date + "T23:59:59Z";
-      const url = `https://api.tryoto.com/rest/v2/orders?after=${after}&before=${before}`;
+      const url = `https://oto-proxy.onrender.com/oto/rest/v2/orders?after=${after}&before=${before}`;
 
       fetch(url, {
         headers: {
-          "Authorization": `Bearer ${accessToken}`
+          "Authorization": `Bearer ${localStorage.getItem("oto_token")}`
         }
       })
         .then(res => res.json())
@@ -107,9 +111,9 @@
       document.querySelectorAll("#order-list li").forEach(li => li.classList.remove("active"));
       document.getElementById(`order-${orderId}`)?.classList.add("active");
 
-      fetch(`https://api.tryoto.com/rest/v2/orders/${orderId}`, {
+      fetch(`https://oto-proxy.onrender.com/oto/rest/v2/orders/${orderId}`, {
         headers: {
-          "Authorization": `Bearer ${accessToken}`
+          "Authorization": `Bearer ${localStorage.getItem("oto_token")}`
         }
       })
         .then(res => res.json())
