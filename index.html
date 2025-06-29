@@ -52,7 +52,6 @@
   <audio id="error" src="error.mp3"></audio>
 
   <script>
-    // طلب التوكن إذا غير موجود
     if (!localStorage.getItem("oto_token")) {
       const token = prompt("أدخل التوكن المؤقت:");
       localStorage.setItem("oto_token", token);
@@ -78,7 +77,7 @@
 
       const after = date + "T00:00:00Z";
       const before = date + "T23:59:59Z";
-      const url = `https://oto-proxy.onrender.com/oto/rest/v2/orders?after=${after}&before=${before}`;
+      const url = `https://oto-proxy.onrender.com/proxy/rest/v2/orders?after=${after}&before=${before}`;
 
       fetch(url, {
         headers: {
@@ -111,7 +110,7 @@
       document.querySelectorAll("#order-list li").forEach(li => li.classList.remove("active"));
       document.getElementById(`order-${orderId}`)?.classList.add("active");
 
-      fetch(`https://oto-proxy.onrender.com/oto/rest/v2/orders/${orderId}`, {
+      fetch(`https://oto-proxy.onrender.com/proxy/rest/v2/orders/${orderId}`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("oto_token")}`
         }
